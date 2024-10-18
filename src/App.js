@@ -1,115 +1,99 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
 import axios from 'axios';
-import { Bar } from 'react-chartjs-2';
-import './App.css'; // Assurez-vous d'importer le fichier CSS
+import './App.css';
 
 function App() {
-    const [leads, setLeads] = useState([]);
-    const [form, setForm] = useState({});
-    const [chartData, setChartData] = useState({});
-    const [error, setError] = useState('');
-    const [token, setToken] = useState('');
+  const [formData, setFormData] = useState({
+    nom: '',
+    prenom: '',
+    civilite: '',
+    adresse: '',
+    cp: '',
+    ville: '',
+    telephone: '',
+    email: '',
+  });
 
-    const login = async () => {
-        try {
-            const response = await axios.post('http://localhost:5000/login', {
-                username: 'testuser',
-                password: 'testpassword'
-            });
-            setToken(response.data.access_token);
-            localStorage.setItem('jwtToken', response.data.access_token);
-        } catch (error) {
-            console.error('Login error:', error);
-            setError('Login failed');
-        }
-    };
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+  };
 
-    const fetchLeads = useCallback(async () => {
-        try {
-            const jwtToken = localStorage.getItem('jwtToken');
-            const response = await axios.get('http://localhost:5000/leads', {
-                headers: { Authorization: `Bearer ${jwtToken}` }
-            });
-            setLeads(response.data);
-            prepareChartData(response.data);
-        } catch (error) {
-            console.error('Error fetching leads:', error);
-            setError('Failed to fetch leads');
-        }
-    }, []);
+  const handleSubmit = async (e) => {
+    e.preventDefault();
 
-    useEffect(() => {
-        login();
-        fetchLeads();
-    }, [fetchLeads]);
+    // Générer ExternalId et DateFormulaire
+    const ExternalId = Math.floor(Math.random() * 100000000); // Génération d'un ID aléatoire
+    const DateFormulaire = new Date().toISOString(); // Date actuelle au format ISO
 
-    const prepareChartData = (leads) => {
-        if (!leads || leads.length === 0) {
-            return;
-        }
-        
-        const cities = leads.map(lead => lead.ville);
-        const counts = {};
-        cities.forEach(city => { counts[city] = (counts[city] || 0) + 1; });
-        setChartData({
-            labels: Object.keys(counts),
-            datasets: [{
-                label: '# de Leads',
-                data: Object.values(counts),
-                backgroundColor: 'rgba(75, 192, 192, 0.6)',
-                borderColor: 'rgba(75, 192, 192, 1)',
-                borderWidth: 1
-            }]
-        });
-    };
+    // Créer l'URL à envoyer
+    const url = `http://ws.ga-media.fr/services?GA_part=EGNSDGGC&GA_ws=WBJQUCEP&ExternalId=${ExternalId}&DateFormulaire=${DateFormulaire}&nom=${formData.nom}&prenom=${formData.prenom}&civilite=${formData.civilite}&adresse=${formData.adresse}&cp=${formData.cp}&ville=${formData.ville}&telephone=${formData.telephone}&email=${formData.email}`;
 
-    const handleChange = (e) => {
-        setForm({
-            ...form,
-            [e.target.name]: e.target.value
-        });
-    };
+    try {
+      const response = await axios.get(url);
+      console.log('Response:', response.data);
+      alert('Lead envoyé avec succès!');
+      // Réinitialiser le formulaire
+      setFormData({
+        nom: '',
+        prenom: '',
+        civilite: '',
+        adresse: '',
+        cp: '',
+        ville: '',
+        telephone: '',
+        email: '',
+      });
+    } catch (error) {
+      console.error('Erreur lors de l\'envoi du lead:', error);
+      alert('Erreur lors de l\'envoi du lead. Veuillez réessayer.');
+    }
+  };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        try {
-            const jwtToken = localStorage.getItem('jwtToken');
-            await axios.post('http://localhost:5000/leads', form, {
-                headers: { Authorization: `Bearer ${jwtToken}` }
-            });
-            fetchLeads();
-        } catch (error) {
-            console.error('Error submitting lead:', error);
-            setError('Failed to submit lead');
-        }
-    };
-
-    return (
-        <div className="container">
-            <h1>Ajouter un Lead</h1>
-            {error && <div style={{ color: 'red' }}>{error}</div>}
-            <form onSubmit={handleSubmit}>
-                <input name="nom" onChange={handleChange} placeholder="Nom" required />
-                <input name="prenom" onChange={handleChange} placeholder="Prénom" required />
-                <input name="civilite" onChange={handleChange} placeholder="Civilité" required />
-                <input name="adresse" onChange={handleChange} placeholder="Adresse" required />
-                <input name="cp" onChange={handleChange} placeholder="Code Postal" required />
-                <input name="ville" onChange={handleChange} placeholder="Ville" required />
-                <input name="telephone" onChange={handleChange} placeholder="Téléphone" required />
-                <input name="email" type="email" onChange={handleChange} placeholder="Email" required />
-                <button type="submit">Ajouter Lead</button>
-            </form>
-            <ul className="lead-list">
-                {leads.map((lead, index) => (
-                    <li key={index} className="lead-item">{lead.nom} {lead.prenom} - {lead.ville}</li>
-                ))}
-            </ul>
-            <div className="chart-container">
-                <h2>Leads par Ville</h2>
-                <Bar data={chartData} />
-            </div>
+  return (
+    <div className="App">
+      <h1>Formulaire de Saisie des Leads</h1>
+      <form onSubmit={handleSubmit}>
+        <div>
+          <label>Civilité:</label>
+          <select name="civilite" value={formData.civilite} onChange={handleChange} required>
+            <option value="">Sélectionner</option>
+            <option value="Monsieur">Monsieur</option>
+            <option value="Madame">Madame</option>
+          </select>
         </div>
-    );
+        <div>
+          <label>Nom:</label>
+          <input type="text" name="nom" value={formData.nom} onChange={handleChange} required />
+        </div>
+        <div>
+          <label>Prénom:</label>
+          <input type="text" name="prenom" value={formData.prenom} onChange={handleChange} required />
+        </div>
+        <div>
+          <label>Adresse:</label>
+          <input type="text" name="adresse" value={formData.adresse} onChange={handleChange} required />
+        </div>
+        <div>
+          <label>Code Postal:</label>
+          <input type="text" name="cp" value={formData.cp} onChange={handleChange} required />
+        </div>
+        <div>
+          <label>Ville:</label>
+          <input type="text" name="ville" value={formData.ville} onChange={handleChange} required />
+        </div>
+        <div>
+          <label>Téléphone:</label>
+          <input type="text" name="telephone" value={formData.telephone} onChange={handleChange} required />
+        </div>
+        <div>
+          <label>Email:</label>
+          <input type="email" name="email" value={formData.email} onChange={handleChange} required />
+        </div>
+        <button type="submit">Envoyer</button>
+      </form>
+    </div>
+  );
 }
 
 export default App;
