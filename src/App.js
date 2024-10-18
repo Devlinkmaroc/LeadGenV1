@@ -1,32 +1,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
+import { Bar } from 'react-chartjs-2';
+import './App.css'; // Assurez-vous d'importer le fichier CSS
 
 function App() {
     const [leads, setLeads] = useState([]);
-    const [form, setForm] = useState({
-        nom: '',
-        prenom: '',
-        civilite: '',
-        adresse: '',
-        cp: '',
-        ville: '',
-        telephone: '',
-        email: ''
-    });
+    const [form, setForm] = useState({});
+    const [chartData, setChartData] = useState({});
     const [error, setError] = useState('');
     const [token, setToken] = useState('');
 
-    // Fonction pour générer ExternalId unique
-    const generateExternalId = () => {
-        return Math.floor(Math.random() * 100000000);  // Génère un ID aléatoire à 8 chiffres
-    };
-
-    // Fonction pour générer la date et heure actuelles au format ISO
-    const generateDateFormulaire = () => {
-        return new Date().toISOString();  // Retourne la date actuelle au format ISO 8601
-    };
-
-    // Se connecter et obtenir le token JWT
     const login = async () => {
         try {
             const response = await axios.post('http://localhost:5000/login', {
@@ -34,7 +17,7 @@ function App() {
                 password: 'testpassword'
             });
             setToken(response.data.access_token);
-            localStorage.setItem('jwtToken', response.data.access_token); // Stocke le token dans le localStorage
+            localStorage.setItem('jwtToken', response.data.access_token);
         } catch (error) {
             console.error('Login error:', error);
             setError('Login failed');
@@ -43,11 +26,12 @@ function App() {
 
     const fetchLeads = useCallback(async () => {
         try {
-            const jwtToken = localStorage.getItem('jwtToken'); // Récupère le token du localStorage
+            const jwtToken = localStorage.getItem('jwtToken');
             const response = await axios.get('http://localhost:5000/leads', {
                 headers: { Authorization: `Bearer ${jwtToken}` }
             });
             setLeads(response.data);
+            prepareChartData(response.data);
         } catch (error) {
             console.error('Error fetching leads:', error);
             setError('Failed to fetch leads');
@@ -55,9 +39,29 @@ function App() {
     }, []);
 
     useEffect(() => {
-        login(); // Connexion pour obtenir le token JWT
+        login();
         fetchLeads();
     }, [fetchLeads]);
+
+    const prepareChartData = (leads) => {
+        if (!leads || leads.length === 0) {
+            return;
+        }
+        
+        const cities = leads.map(lead => lead.ville);
+        const counts = {};
+        cities.forEach(city => { counts[city] = (counts[city] || 0) + 1; });
+        setChartData({
+            labels: Object.keys(counts),
+            datasets: [{
+                label: '# de Leads',
+                data: Object.values(counts),
+                backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                borderColor: 'rgba(75, 192, 192, 1)',
+                borderWidth: 1
+            }]
+        });
+    };
 
     const handleChange = (e) => {
         setForm({
@@ -69,21 +73,11 @@ function App() {
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
-            const jwtToken = localStorage.getItem('jwtToken'); // Récupère le token du localStorage
-            const externalId = generateExternalId();  // Génération de ExternalId
-            const dateFormulaire = generateDateFormulaire();  // Génération de DateFormulaire
-
-            const leadData = {
-                ...form,
-                ExternalId: externalId,
-                DateFormulaire: dateFormulaire
-            };
-
-            await axios.post('http://localhost:5000/leads', leadData, {
+            const jwtToken = localStorage.getItem('jwtToken');
+            await axios.post('http://localhost:5000/leads', form, {
                 headers: { Authorization: `Bearer ${jwtToken}` }
             });
-
-            fetchLeads();  // Actualise la liste des leads
+            fetchLeads();
         } catch (error) {
             console.error('Error submitting lead:', error);
             setError('Failed to submit lead');
@@ -91,37 +85,29 @@ function App() {
     };
 
     return (
-        <div>
-            <h1>Formulaire de Saisie des Leads</h1>
+        <div className="container">
+            <h1>Ajouter un Lead</h1>
             {error && <div style={{ color: 'red' }}>{error}</div>}
-            
-            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', width: '400px', margin: '0 auto' }}>
-                <label>Nom :</label>
+            <form onSubmit={handleSubmit}>
                 <input name="nom" onChange={handleChange} placeholder="Nom" required />
-                
-                <label>Prénom :</label>
                 <input name="prenom" onChange={handleChange} placeholder="Prénom" required />
-                
-                <label>Civilité :</label>
                 <input name="civilite" onChange={handleChange} placeholder="Civilité" required />
-                
-                <label>Adresse :</label>
                 <input name="adresse" onChange={handleChange} placeholder="Adresse" required />
-                
-                <label>Code Postal :</label>
                 <input name="cp" onChange={handleChange} placeholder="Code Postal" required />
-                
-                <label>Ville :</label>
                 <input name="ville" onChange={handleChange} placeholder="Ville" required />
-                
-                <label>Téléphone :</label>
                 <input name="telephone" onChange={handleChange} placeholder="Téléphone" required />
-                
-                <label>Email :</label>
-                <input name="email" onChange={handleChange} placeholder="Email" required />
-                
-                <button type="submit" style={{ marginTop: '20px' }}>Envoyer Lead</button>
+                <input name="email" type="email" onChange={handleChange} placeholder="Email" required />
+                <button type="submit">Ajouter Lead</button>
             </form>
+            <ul className="lead-list">
+                {leads.map((lead, index) => (
+                    <li key={index} className="lead-item">{lead.nom} {lead.prenom} - {lead.ville}</li>
+                ))}
+            </ul>
+            <div className="chart-container">
+                <h2>Leads par Ville</h2>
+                <Bar data={chartData} />
+            </div>
         </div>
     );
 }
