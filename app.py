@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify
 import requests
 from urllib.parse import urlencode
+import re
 
 app = Flask(__name__)
 
@@ -30,12 +31,13 @@ def add_lead():
         return jsonify({'error': 'Invalid telephone format'}), 400
 
     url = generate_url(data)
+    print(f'Generated URL: {url}')  # Pour le débogage
     try:
         response = requests.get(url)
         response.raise_for_status()
         return jsonify({'status': 'success', 'response_status': response.status_code})
     except requests.exceptions.RequestException as e:
-        return jsonify({'error': 'Failed to connect to external service', 'details': str(e)}), 500
+        return jsonify({'error': 'Failed to connect to external service', 'details': str(e), 'response': response.text if 'response' in locals() else 'No response'}), 500
 
 def generate_url(data):
     base_url = "http://ws.ga-media.fr/services?"
@@ -60,8 +62,7 @@ def validate_cp(cp):
     return cp.isdigit() and len(cp) == 5
 
 def validate_email(email):
-    import re
-    return re.match(r"[^@]+@[^@]+\.[^@]+", email) is not None
+    return re.match(r"^[^@]+@[^@]+\.[^@]+$", email) is not None
 
 def validate_telephone(telephone):
     return re.match(r"^0[1-9][0-9]{8}$", telephone) is not None
